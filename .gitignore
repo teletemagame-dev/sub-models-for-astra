@@ -1,0 +1,6 @@
+# Build artifacts
+*.astraplugin
+
+node_modules/
+dist/
+.test-build/

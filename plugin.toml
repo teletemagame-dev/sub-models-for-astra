@@ -1,0 +1,155 @@
+[plugin]
+id = "sub-models-for-astra"
+name = "Sub Models for Astra"
+version = "0.14.0"
+description = "Runs Astra on your Claude or ChatGPT subscription by driving the official agent CLI, with turn and token limits you set"
+author = "Noxys"
+license = "MIT"
+homepage = "https://github.com/teletemagame-dev/sub-models-for-astra"
+
+# A model turn is not a tool call. Thinking, a long answer and a cold CLI start
+# are all inside this one budget, and the CLI is spawned per turn, so the floor
+# is a second or two before the model has said anything at all. The plugin's
+# own `turn_timeout_secs` setting bounds the turn below this number; this is
+# only the ceiling that stops a wedged process from being waited on forever.
+call_timeout_secs = 600
+
+[entry]
+command = "node"
+args = ["dist/index.js"]
+runtimes = ["node"]
+
+# `[capabilities]` is what the daemon may call INTO this plugin.
+#
+# `ai_provider` is the whole point: it makes this plugin selectable as the
+# model behind Astra. `tools` buys two: `subscription_status`, so that "how much
+# have I used today" is a question you can ask in the chat rather than one you
+# have to open a settings page for, and `subscription_setup`, which is the
+# ladder over the wall every new user hits — nothing installed, or nothing
+# signed in.
+[capabilities]
+ai_provider = true
+tools = true
+
+# `[permissions]` is the other direction: which host RPCs this plugin may call
+# out to. Default-deny, and this plugin asks for nothing at all — it reads its
+# own settings, spawns a CLI you installed, and writes a usage file in your
+# home directory. Everything it produces goes back through the completion
+# stream it was asked for.
+[permissions]
+
+# Rendered by Astra as this plugin's settings page.
+#
+# Every label and description carries both languages, English first and Russian
+# after it. That is not a style choice: `[config] schema` is static in this
+# manifest and the daemon renders it as written. The SDK's `I18n` and
+# `OnLanguageChanged` cover strings a plugin computes at run time — action and
+# trigger fields — and cannot reach a schema the manifest already fixed. One
+# string per field is all there is, so it holds both.
+[config]
+schema = """
+{
+  "type": "object",
+  "properties": {
+    "backend": {
+      "type": "string",
+      "enum": ["claude", "codex"],
+      "default": "claude",
+      "title": "Subscription to use (Какую подписку использовать)",
+      "description": "claude — Claude Code, included with a Claude Pro or Max plan. codex — Codex CLI, included with a ChatGPT Plus, Pro or Team plan. Whichever you pick must already be installed and signed in; this plugin never sees your password or your token. — По-русски: claude — Claude Code, входит в подписку Claude Pro или Max. codex — Codex CLI, входит в ChatGPT Plus, Pro или Team. Выбранный CLI должен быть уже установлен и авторизован; плагин никогда не видит ни пароля, ни токена."
+    },
+    "claude_command": {
+      "type": "string",
+      "default": "claude",
+      "title": "Claude Code command (Команда Claude Code)",
+      "description": "Leave as 'claude' if it is on PATH. Otherwise the full path to the executable. — По-русски: оставьте 'claude', если он есть в PATH. Иначе укажите полный путь к исполняемому файлу."
+    },
+    "codex_command": {
+      "type": "string",
+      "default": "codex",
+      "title": "Codex command (Команда Codex)",
+      "description": "Leave as 'codex' if it is on PATH. Otherwise the full path to the executable. — По-русски: оставьте 'codex', если он есть в PATH. Иначе укажите полный путь к исполняемому файлу."
+    },
+    "claude_model": {
+      "type": "string",
+      "enum": ["Default", "Opus 5", "Fable 5", "Sonnet 5", "Haiku 4.5", "Opus 4.8"],
+      "default": "Default",
+      "title": "Claude model (Модель Claude)",
+      "description": "Every entry was checked against a live subscription; the context sizes come from each model's own usage report. • Opus 5 (claude-opus-5) — the strongest reasoning, for work that has to be right rather than quick. Note the context window: 200K, a fifth of the others. This plugin re-sends the whole conversation every turn, so a long chat reaches that ceiling sooner here than in a chat app. Costs the most against your plan. • Fable 5 (fable) — the newest, 1M context, answers up to 64K. • Sonnet 5 (sonnet) — the everyday one: strong enough for almost anything, 1M context, a much smaller bite out of the plan than Opus. If unsure, start here. • Haiku 4.5 (haiku) — fastest and cheapest by a wide margin, 200K context; right for triggers, noticeably weaker at multi-step reasoning. • Opus 4.8 (opus) — the previous Opus. Its 1M context is five times Opus 5's, so for a very long conversation it can be the better Opus. • Default — whatever Claude Code itself is set to. — По-русски: каждый пункт проверен на живой подписке, размеры контекста взяты из отчёта самой модели. • Opus 5 (claude-opus-5) — сильнейшие рассуждения, для работы, которая должна быть правильной, а не быстрой. Обратите внимание на контекст: 200К, впятеро меньше остальных. Плагин переотправляет весь разговор на каждом ходу, поэтому потолок наступает раньше, чем в обычном чате. Дороже всех по вашему плану. • Fable 5 (fable) — новейшая, контекст 1М, ответ до 64К. • Sonnet 5 (sonnet) — повседневная: сильна почти для всего, контекст 1М, откусывает от плана заметно меньше Opus. Если сомневаетесь — начните отсюда. • Haiku 4.5 (haiku) — самая быстрая и дешёвая с большим отрывом, контекст 200К; хороша для триггеров, заметно слабее в многошаговых рассуждениях. • Opus 4.8 (opus) — предыдущий Opus. Его контекст 1М впятеро больше, чем у Opus 5, так что для очень длинного разговора он может оказаться лучшим Opus. • Default — то, что выставлено в самом Claude Code."
+    },
+    "codex_model": {
+      "type": "string",
+      "enum": ["Default", "GPT-5.6 Sol", "GPT-5.6 Terra", "GPT-5.6 Luna", "GPT-5.5", "GPT-5.3 Codex Spark"],
+      "default": "Default",
+      "title": "Codex model (Модель Codex)",
+      "description": "Not verified against a running CLI, so these follow OpenAI's own descriptions. • GPT-5.6 Sol (gpt-5.6-sol) — the deep-reasoning flagship; slowest and heaviest. • GPT-5.6 Terra (gpt-5.6-terra) — the balanced middle, against GPT-5.5 at roughly half the cost. The sensible default. • GPT-5.6 Luna (gpt-5.6-luna) — fast, cheap, high-volume; OpenAI also uses it as a subagent model. • GPT-5.5 (gpt-5.5) — the previous frontier model. • GPT-5.3 Codex Spark (gpt-5.3-codex-spark) — sub-second latency, text only, ChatGPT Pro only; it fails outright on Plus. • Default — whatever Codex itself is set to. GPT-5.4 and 5.4-mini are deliberately absent: they retire on 31 August 2026. — По-русски: против работающего CLI не проверялось, описания взяты у самой OpenAI. • GPT-5.6 Sol (gpt-5.6-sol) — флагман глубоких рассуждений, самый медленный и тяжёлый. • GPT-5.6 Terra (gpt-5.6-terra) — сбалансированная середина, примерно вдвое дешевле GPT-5.5. Разумный выбор по умолчанию. • GPT-5.6 Luna (gpt-5.6-luna) — быстрая и дешёвая для большого объёма; OpenAI использует её и как модель субагента. • GPT-5.5 (gpt-5.5) — предыдущая флагманская. • GPT-5.3 Codex Spark (gpt-5.3-codex-spark) — задержка меньше секунды, только текст и только ChatGPT Pro; на Plus просто откажет. GPT-5.4 и 5.4-mini намеренно отсутствуют: их снимают 31 августа 2026."
+    },
+    "model_override": {
+      "type": "string",
+      "default": "",
+      "title": "Model override (Модель вручную)",
+      "description": "Wins over whichever dropdown above matches your backend, and takes the raw model id rather than a display name. Every list here will go out of date, and this is the way past that without waiting for a new version of the plugin. Leave empty unless you need a model the list does not offer. — По-русски: перебивает ту выпадашку выше, которая соответствует вашему бэкенду, и принимает не отображаемое имя, а сам идентификатор модели. Любой список рано или поздно устареет, и это способ обойтись без нового выпуска плагина. Оставьте пустым, если вам не нужна модель, которой нет в списке."
+    },
+    "reasoning": {
+      "type": "string",
+      "enum": ["", "low", "medium", "high", "xhigh", "max"],
+      "default": "",
+      "title": "Thinking effort (Глубина размышления)",
+      "description": "Empty follows whatever Astra asked for on the turn. Anything else overrides it. More effort is a better answer and a bigger bite out of your plan. — По-русски: пустое значение следует за тем, что запросила Астра на этом ходу. Любое другое перебивает её выбор. Больше усилий — лучше ответ и больше откусано от вашего плана."
+    },
+    "turns_per_hour": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 0,
+      "title": "Turns per hour (Ходов в час)",
+      "description": "0 turns the limit off. A turn is one request to the model — a single question that needs three tool calls is four turns, not one, so this number goes further than it looks. — По-русски: 0 отключает лимит. Ход — это один запрос к модели: вопрос, которому нужны три вызова инструментов, стоит четырёх ходов, а не одного, так что число расходуется быстрее, чем кажется."
+    },
+    "turns_per_day": {
+      "type": "integer",
+      "default": 400,
+      "minimum": 0,
+      "title": "Turns per day (Ходов в сутки)",
+      "description": "0 turns the limit off. Counted over a rolling 24 hours, not since midnight: a calendar limit gives you a cliff at midnight and a free-for-all at 00:01. — По-русски: 0 отключает лимит. Считается по скользящим 24 часам, а не с полуночи: календарный лимит даёт обрыв в полночь и вседозволенность в 00:01."
+    },
+    "tokens_per_day": {
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "title": "Tokens per day (Токенов в сутки)",
+      "description": "0 turns the limit off. Counted from what the CLI reports, over a rolling 24 hours. A turn that ends in a tool call is estimated rather than reported, because the CLI is stopped before it can say. — По-русски: 0 отключает лимит. Считается по тому, что сообщает CLI, за скользящие 24 часа. Ход, закончившийся вызовом инструмента, оценивается приблизительно: CLI останавливают раньше, чем он успевает отчитаться."
+    },
+    "on_limit": {
+      "type": "string",
+      "enum": ["refuse", "warn"],
+      "default": "refuse",
+      "title": "When a limit is reached (Когда лимит достигнут)",
+      "description": "refuse — the turn fails and says which limit stopped it. warn — the turn runs anyway and a warning goes to the plugin log. Neither can protect a plan limit you have already spent elsewhere; these are your limits, not the provider's. — По-русски: refuse — ход завершается ошибкой и сообщает, какой именно лимит его остановил. warn — ход всё равно выполняется, а предупреждение уходит в лог плагина. Ни то, ни другое не защитит лимит плана, который вы уже потратили в другом месте: это ваши лимиты, а не провайдера."
+    },
+    "turn_timeout_secs": {
+      "type": "integer",
+      "default": 180,
+      "minimum": 10,
+      "title": "Turn timeout, seconds (Таймаут хода, секунды)",
+      "description": "How long one turn may take before the CLI is killed. Includes the cold start of the process, which is a second or two on its own. — По-русски: сколько может длиться один ход, прежде чем CLI будет остановлен. Сюда входит холодный старт процесса — сам по себе секунда-другая."
+    },
+    "pass_tools": {
+      "type": "boolean",
+      "default": true,
+      "title": "Let the model use Astra's tools (Разрешить модели инструменты Астры)",
+      "description": "On, Astra's tools are handed to the CLI and calls come back for Astra to run — with Astra's own permissions and confirmations, exactly as with any other provider. Off, the model can only talk, which is cheaper and much less useful. — По-русски: включено — инструменты Астры передаются в CLI, а вызовы возвращаются Астре на исполнение, с её собственными правами и подтверждениями, ровно как у любого другого провайдера. Выключено — модель может только разговаривать: дешевле и куда менее полезно."
+    },
+    "extra_args": {
+      "type": "string",
+      "default": "",
+      "title": "Extra command-line arguments (Дополнительные аргументы)",
+      "description": "Appended to the CLI invocation, split on spaces. An escape hatch for a flag this plugin does not know about; wrong values here fail the turn. — По-русски: дописываются к вызову CLI, разделяются пробелами. Запасной выход для флага, о котором плагин не знает; неверные значения обрушат ход."
+    },
+    "ledger_path": {
+      "type": "string",
+      "default": "",
+      "title": "Usage file (Файл учёта расхода)",
+      "description": "Where the turn ledger is kept. Empty means .astra-sub-models/usage.json in your home directory. It lives outside the plugin folder so reinstalling does not reset your limits. — По-русски: где хранится журнал ходов. Пустое значение означает .astra-sub-models/usage.json в вашей домашней папке. Он лежит вне папки плагина, чтобы переустановка не сбрасывала ваши лимиты."
+    }
+  }
+}
+"""

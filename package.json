@@ -1,0 +1,26 @@
+{
+  "name": "sub-models-for-astra",
+  "version": "0.14.0",
+  "description": "Run Astra on a Claude or ChatGPT subscription by driving the official agent CLI, with spend limits",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "pretest": "node scripts/build.mjs --test-bundle",
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "astra-plugin-sdk": "^0.6.0",
+    "@grpc/grpc-js": "^1.10.0",
+    "@grpc/proto-loader": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}
