@@ -393,7 +393,7 @@ sequenceDiagram
     C->>P: tool_use printed before the call runs
     C->>S: call the tool
     P-->>A: toolCall
-    P-XC: killed, still waiting on the shim
+    P-xC: killed, still waiting on the shim
     A->>P: next turn, with the tool result
 ```
 
