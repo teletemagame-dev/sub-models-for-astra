@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icon.svg" width="88" height="88" alt="">
+<img src="assets/cover-card.png" width="460" alt="Sub Models for Astra">
 
 # Sub Models for Astra
 
